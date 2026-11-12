@@ -37,7 +37,7 @@ if not DB.exists():
 
 conn = sqlite3.connect(DB)
 
-st.title("Garden Beds")
+st.title("My First Garden App")
 
 # READ: pick a bed, see its history
 crops = pd.read_sql_query("SELECT crop FROM bed ORDER BY crop", conn)["crop"]
