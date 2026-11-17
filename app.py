@@ -1,70 +1,19 @@
-import sqlite3
-from pathlib import Path
-import sqlite3
-from pathlib import Path
-
-import pandas as pd
 import streamlit as st
 
-DB = Path("garden.db")
+# this imports the queries.py file in our project in its entirety, and just the connect and reset things in the "db.py"
+# note how the .py is omitted from the imported module file name
 
-# Build the database the first time the app runs (or after a restart wipes it)
-if not DB.exists():
-    conn = sqlite3.connect(DB)
-    conn.executescript("""
-        CREATE TABLE bed (
-            bed_id   INTEGER PRIMARY KEY,
-            crop     TEXT NOT NULL,
-            location TEXT
-        );
-        CREATE TABLE bed_log (
-            log_id   INTEGER PRIMARY KEY,
-            bed_id   INTEGER NOT NULL REFERENCES bed(bed_id),
-            log_date TEXT,
-            status   TEXT
-        );
-        INSERT INTO bed VALUES
-            (1, 'kale', 'upper garden'),
-            (2, 'garlic', 'hoop house'),
-            (3, 'tomatoes', 'lower garden');
-        INSERT INTO bed_log (bed_id, log_date, status) VALUES
-            (1, '2026-09-01', 'seeded'),
-            (1, '2026-09-20', 'sprouting'),
-            (2, '2026-09-05', 'seeded');
-    """)
-    conn.commit()
+import queries      
+from db import connect, reset
+
+conn = connect()
+
+st.title("Garden Beds")
+st.write("Pick a page in the sidebar.")
+st.caption(f"Logs with no bed: {queries.orphan_count(conn)}")
+
+# RESET: throw away garden.db so the app builds a fresh one
+if st.button("Reset garden"):
     conn.close()
-
-conn = sqlite3.connect(DB)
-
-st.title("My First Garden App")
-
-# READ: pick a bed, see its history
-crops = pd.read_sql_query("SELECT crop FROM bed ORDER BY crop", conn)["crop"]
-crop = st.selectbox("Pick a bed", crops)
-
-history = pd.read_sql_query(
-    """
-    SELECT l.log_date, l.status
-    FROM bed_log l
-    JOIN bed b ON b.bed_id = l.bed_id
-    WHERE b.crop = ?
-    ORDER BY l.log_date
-    """,
-    conn,
-    params=(crop,),
-)
-st.dataframe(history, hide_index=True)
-
-# CREATE: add a visit for this bed
-with st.form("add_visit"):
-    visit_date = st.date_input("Visit date")
-    status = st.selectbox("Status", ["seeded", "sprouting", "harvesting", "fallow", "failed"])
-    if st.form_submit_button("Add visit"):
-        conn.execute(
-            "INSERT INTO bed_log (bed_id, log_date, status) "
-            "SELECT bed_id, ?, ? FROM bed WHERE crop = ?",
-            (str(visit_date), status, crop),
-        )
-        conn.commit()
-        st.rerun()
+    reset()
+    st.rerun()
